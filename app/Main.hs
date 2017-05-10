@@ -220,7 +220,7 @@ parseGotoCommand :: Parser Command
 parseGotoCommand = CommandGoto <$> (GotoOptions <$> warpnameParser)
 
 parseCommand :: Parser Command
-parseCommand = subparser 
+parseCommand = hsubparser 
     -- add command
     ((command "add" (info parseAddCommand (progDesc "add a warp point"))) <>
     -- list command
