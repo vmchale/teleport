@@ -123,12 +123,16 @@ parseCommand = hsubparser
 setErrorColor :: IO ()
 setErrorColor = setSGR [SetColor Foreground Vivid Red]    
 
+colorWhen :: IO () -> IO ()
+colorWhen act = do
+    useColor <- fromMaybe "1" <$> lookupEnv "CLICOLOR"
+    if useColor /= "0" then act else pure def
+
 warpPointPrint :: WarpPoint -> IO ()
 warpPointPrint warpPoint = do
-    useColor <- fromMaybe "1" <$> lookupEnv "CLICOLOR"
-    if useColor /= "0" then setSGR [SetColor Foreground Dull White] else pure def
+    colorWhen $ setSGR [SetColor Foreground Dull White]
     putStr (_name warpPoint)
-    if useColor /= "0" then setSGR [SetColor Foreground Vivid Blue] else pure def
+    colorWhen $ setSGR [SetColor Foreground Vivid Blue]
     putStr $ "\t" <> _absFolderPath warpPoint <> "\n"
 
 folderNotFoundError :: FilePath -> IO ()
