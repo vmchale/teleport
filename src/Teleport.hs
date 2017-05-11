@@ -19,7 +19,7 @@ import qualified Data.ByteString.Lazy as BSL
 import System.Console.ANSI
 import Filesystem as P
 import System.Environment 
-import Paths_teleport
+import Paths_shift
 import Data.Version
 import Data.Default
 import Control.Lens hiding (argument)
