@@ -1,9 +1,7 @@
 name:                teleport
-version:             0.0.0.10
+version:             0.0.1.0
 synopsis:            A tool to quickly switch between directories
-description:
-    A tool to quickly switch between directories 
-    Please see README.md for more details
+description:         Please see README.md for details
 homepage:            https://github.com/vmchale/teleport#readme
 license:             MIT
 license-file:        LICENSE
