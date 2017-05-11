@@ -1,1 +1,3 @@
 - [ ] use acid-state and not json
+- [x] code cleanup
+- [ ] pr to fix directory change (upstream?)

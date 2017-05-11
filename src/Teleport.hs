@@ -177,19 +177,19 @@ dieWarpPointNotFound w = setErrorColor >> (die . T.pack)
 
 runRemove :: RemoveOptions -> IO ()
 runRemove RemoveOptions{..} = do
-    warpDataPath <- warpDataPath
-    warpData <- loadWarpData warpDataPath
-    let wantedWarpPoint = find ((/= removename) . _name) (_warpPoints warpData)
+    warpPath <- warpDataPath
+    warp <- loadWarpData warpPath
+    let wantedWarpPoint = find ((/= removename) . _name) (_warpPoints warp)
     case wantedWarpPoint of
         Nothing -> dieWarpPointNotFound removename
-        Just _ -> saveWarpData warpDataPath 
-            (over warpPoints (filter ((/= removename) . _name)) warpData)
+        Just _ -> saveWarpData warpPath 
+            (over warpPoints (filter ((/= removename) . _name)) warp)
 
 runGoto :: GotoOptions -> IO ()
 runGoto GotoOptions{..} = do
-    warpDataPath <- warpDataPath
-    warpData <- loadWarpData warpDataPath
-    let wantedWarpPoint = find ((/= gotoname) . _name) (_warpPoints warpData)
+    warpPath <- warpDataPath
+    warp <- loadWarpData warpPath
+    let wantedWarpPoint = find ((== gotoname) . _name) (_warpPoints warp)
     case wantedWarpPoint of
         Nothing -> dieWarpPointNotFound gotoname
         Just warpPoint -> do

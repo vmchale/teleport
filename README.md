@@ -13,7 +13,7 @@ I also put the following in my `~/.bashrc` so that `teleport` would run in the
 correct shell:
 
 ```bash
-alias go="source teleport"
+alias go="source $HOME/.local/bin/teleport"
 ```
 
 ## Code
