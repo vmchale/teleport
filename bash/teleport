@@ -5,5 +5,5 @@ OUTPUT=`teleport-hask $@`
 if [[ $? -eq 2 ]]; then
     cd "$OUTPUT"
 else
-    echo $OUTPUT
+    echo "$OUTPUT"
 fi

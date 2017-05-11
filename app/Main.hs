@@ -229,10 +229,10 @@ parseCommand = hsubparser
     (command "list"
         (info parseListCommand (progDesc "list all warp points"))) <>
     -- remove command
-    (command "remove"
-        (info parseRemoveCommand (progDesc "remove a warp point"))) <>
+    (command "del"
+        (info parseRemoveCommand (progDesc "delete a warp point"))) <>
     -- goto command
-    (command "goto"
+    (command "to"
         (info parseGotoCommand (progDesc "go to a created warp point"))))
 
 -- Stream Helpers
