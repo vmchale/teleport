@@ -48,6 +48,8 @@ import qualified Data.ByteString.Lazy as B
 
 import qualified System.Console.ANSI as ANSI
 
+import Filesystem
+
 
 import Debug.Trace
 
@@ -247,7 +249,6 @@ warpPointPrint warpPoint = do
     ANSI.setSGR [ANSI.SetColor ANSI.Foreground ANSI.Vivid ANSI.Blue]    
     putStr "\t"
     putStr (absFolderPath warpPoint)
-    Turtle.cd . Turtle.fromString $ (absFolderPath warpPoint)
     putStr "\n"
 
 -- Add command runner
@@ -282,7 +283,6 @@ dieWarpPointExists warpPoint  =  do
     setErrorColor
     putStrLn ("warp point " ++ (name warpPoint) ++ " already exists:\n")
     warpPointPrint warpPoint
-    Turtle.die ""
 
 runAdd :: AddOptions -> IO ()
 runAdd AddOptions{..} = do
@@ -363,7 +363,9 @@ runGoto GotoOptions{..} = do
         Nothing -> dieWarpPointNotFound gotoname
         Just warpPoint -> do
                              Turtle.echo (Turtle.unsafeTextToLine . T.pack $ (absFolderPath warpPoint))
-                             Turtle.exit (Turtle.ExitFailure 2) 
+                             Turtle.cd . Turtle.fromString $ (absFolderPath warpPoint)
+                             setWorkingDirectory . Turtle.fromString $(absFolderPath warpPoint)
+                             Turtle.exit (Turtle.ExitFailure 2)
       
 run :: Command -> IO ()
 run command = 
