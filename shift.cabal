@@ -1,7 +1,7 @@
 name:                shift
-version:             0.1.0.0
+version:             0.2.0.0
 synopsis:            A tool to quickly switch between directories
-description:         Please see README.md for details
+description:         This is a command-line tool to "teleport" between directories
 homepage:            https://github.com/vmchale/teleport#readme
 license:             MIT
 license-file:        LICENSE
@@ -26,7 +26,7 @@ library
                      , optparse-applicative
                      , system-filepath
                      , text
-                     , aeson
+                     , binary
                      , composition
                      , lens
                      , bytestring
