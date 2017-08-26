@@ -9,6 +9,7 @@ module Teleport where
 import           Control.Lens              hiding (argument)
 import           Control.Monad
 import           Data.Binary
+import qualified Data.ByteString           as BS
 import qualified Data.ByteString.Lazy      as BSL
 import           Data.Composition
 import           Data.Default
@@ -45,7 +46,7 @@ data Command = Display | Add AddOptions | Remove RemoveOptions | Goto GotoOption
 data WarpPoint = WarpPoint { _name          :: String,
                              _absFolderPath :: String } deriving (Default, Generic, Binary)
 
--- the main data that is loaded from JSON
+-- the main data that is loaded from config
 newtype WarpData = WarpData { _warpPoints :: [WarpPoint] } deriving (Default, Generic, Binary)
 
 makeLenses ''WarpData
@@ -55,28 +56,22 @@ exec :: IO ()
 exec = execParser opts >>= run
     where versionInfo = infoOption ("teleport version: " ++ showVersion version) (short 'v' <> long "version" <> help "Show version")
           opts        = info (helper <*> versionInfo <*> parseCommand)
-                            (fullDesc
-                            <>progDesc "use warp to quickly setup warp points and move between them"
-                            <> header "Warp: move around your filesystem")
-
-dieJSONParseError :: FilePath -> String -> IO WarpData
-dieJSONParseError path err = die . T.pack . foldr (<>) mempty $
-    ["parse error in: "
-    , show path
-    , "\nerror:      \n" <> err ]
+                             (fullDesc
+                             <> progDesc "use warp to quickly setup warp points and move between them"
+                             <> header "Warp: move around your filesystem")
 
 decodeWarpData :: FilePath -> IO WarpData
-decodeWarpData = fmap decode . BSL.readFile . P.encodeString
+decodeWarpData = fmap decode . (fmap BSL.fromStrict . BS.readFile) . P.encodeString
 
 loadWarpData :: FilePath -> IO WarpData
-loadWarpData jsonFilePath = testfile jsonFilePath >>= \exists ->
-    if exists then decodeWarpData jsonFilePath
-    else saveWarpData jsonFilePath def >> pure def
+loadWarpData configFilePath = testfile configFilePath >>= \exists ->
+    if exists then decodeWarpData configFilePath
+    else saveWarpData configFilePath def >> pure def
 
 saveWarpData :: FilePath -> WarpData -> IO ()
-saveWarpData jsonFilePath warpData = touch jsonFilePath >>
+saveWarpData configFilePath warpData =
     let dataBytestring = encode warpData in
-        BSL.writeFile (P.encodeString jsonFilePath) dataBytestring
+        BSL.writeFile (P.encodeString configFilePath) dataBytestring
 
 warpDataPath :: IO FilePath
 warpDataPath = home >>= \homeFolder ->
