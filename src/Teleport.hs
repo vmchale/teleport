@@ -6,12 +6,12 @@
 
 module Teleport where
 
+import           Control.Composition       hiding ((&))
 import           Control.Lens              hiding (argument)
 import           Control.Monad
 import           Data.Binary
 import qualified Data.ByteString           as BS
 import qualified Data.ByteString.Lazy      as BSL
-import           Data.Composition
 import           Data.Default
 import           Data.List
 import           Data.Maybe
@@ -27,7 +27,7 @@ import           Paths_shift
 import           Prelude                   hiding (FilePath)
 import           System.Console.ANSI
 import           System.Environment
-import           Turtle                    hiding (find, header)
+import           Turtle                    hiding (find, header, (&))
 
 -- | options for 'warp add'
 data AddOptions = AddOptions { folderPath :: Maybe String,

@@ -1,5 +1,5 @@
 name:                shift
-version:             0.2.0.0
+version:             0.2.0.1
 synopsis:            A tool to quickly switch between directories
 description:         This is a command-line tool to "teleport" between directories
 homepage:            https://github.com/vmchale/teleport#readme
@@ -27,7 +27,7 @@ library
                      , system-filepath
                      , text
                      , binary
-                     , composition
+                     , composition-prelude
                      , lens
                      , bytestring
                      , ansi-terminal
