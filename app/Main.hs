@@ -1,6 +1,6 @@
 module Main where
 
-import Teleport
+import           Teleport
 
 main :: IO ()
 main = exec

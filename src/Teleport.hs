@@ -7,7 +7,6 @@
 module Teleport where
 
 import           Control.Composition       hiding ((&))
-import           Control.Lens              hiding (argument)
 import           Control.Monad
 import           Data.Binary
 import qualified Data.ByteString           as BS
@@ -22,6 +21,7 @@ import           Data.Version
 import           Filesystem                as P
 import qualified Filesystem.Path.CurrentOS as P
 import           GHC.Generics
+import           Lens.Micro                hiding (argument)
 import           Options.Applicative
 import           Paths_shift
 import           Prelude                   hiding (FilePath)
@@ -43,14 +43,22 @@ newtype GotoOptions = GotoOptions { gotoname :: String }
 data Command = Display | Add AddOptions | Remove RemoveOptions | Goto GotoOptions
 
 -- an abstract entity representing a point to which we can warp to
-data WarpPoint = WarpPoint { _name          :: String,
-                             _absFolderPath :: String } deriving (Default, Generic, Binary)
+data WarpPoint = WarpPoint { _name          :: String
+                           , _absFolderPath :: String }
+               deriving (Default, Generic, Binary)
 
 -- the main data that is loaded from config
-newtype WarpData = WarpData { _warpPoints :: [WarpPoint] } deriving (Default, Generic, Binary)
+newtype WarpData = WarpData { _warpPoints :: [WarpPoint] }
+                 deriving (Default, Generic, Binary)
 
-makeLenses ''WarpData
-makeLenses ''WarpPoint
+warpPoints :: Lens' WarpData [WarpPoint]
+warpPoints f s = fmap (\x -> s { _warpPoints = x }) (f (_warpPoints s))
+
+name :: Lens' WarpPoint String
+name f s = fmap (\x -> s { _name = x}) (f (_name s))
+
+absFolderPath :: Lens' WarpPoint String
+absFolderPath f s = fmap (\x -> s { _absFolderPath = x}) (f (_absFolderPath s))
 
 exec :: IO ()
 exec = execParser opts >>= run
