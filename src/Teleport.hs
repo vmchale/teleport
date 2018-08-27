@@ -3,7 +3,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
 
-module Teleport where
+module Main (main) where
 
 import           Control.Composition       hiding ((&))
 import           Control.Monad
@@ -13,7 +13,6 @@ import qualified Data.ByteString.Lazy      as BSL
 import           Data.Default
 import           Data.List
 import           Data.Maybe
-import           Data.Monoid
 import qualified Data.Text                 as T
 import           Data.Text.Encoding
 import           Data.Version
@@ -28,18 +27,19 @@ import           System.Console.ANSI
 import           System.Environment
 import           Turtle                    hiding (find, header, (&))
 
--- | options for 'warp add'
 data AddOptions = AddOptions { folderPath :: Maybe String,
                                addname    :: String }
 
--- | options for 'warp remove'
 newtype RemoveOptions = RemoveOptions { removename :: String }
 
--- | options for 'warp goto'
 newtype GotoOptions = GotoOptions { gotoname :: String }
 
 -- | data type for command
-data Command = Display | Add AddOptions | Remove RemoveOptions | Goto GotoOptions
+data Command = Display
+             | Add AddOptions
+             | Remove RemoveOptions
+             | Goto GotoOptions
+             | Replace String
 
 -- an abstract entity representing a point to which we can warp to
 data WarpPoint = WarpPoint { _name          :: String
@@ -59,8 +59,8 @@ name f s = fmap (\x -> s { _name = x}) (f (_name s))
 absFolderPath :: Lens' WarpPoint String
 absFolderPath f s = fmap (\x -> s { _absFolderPath = x}) (f (_absFolderPath s))
 
-exec :: IO ()
-exec = execParser opts >>= run
+main :: IO ()
+main = execParser opts >>= run
     where versionInfo = infoOption ("teleport version: " ++ showVersion version) (short 'v' <> long "version" <> help "Show version")
           opts        = info (helper <*> versionInfo <*> parseCommand)
                              (fullDesc
@@ -109,12 +109,16 @@ parseRemoveCommand = Remove . RemoveOptions <$> warpnameParser
 parseGotoCommand :: Parser Command
 parseGotoCommand = Goto . GotoOptions <$> warpnameParser
 
+parseReplaceCommand :: Parser Command
+parseReplaceCommand = Replace <$> warpnameParser
+
 parseCommand :: Parser Command
 parseCommand = hsubparser
     (command "add" (info parseAddCommand (progDesc "add a warp point"))
-    <> (command "list" (info (pure Display) (progDesc "list all warp points")))
-    <> (command "del" (info parseRemoveCommand (progDesc "delete a warp point")))
-    <> (command "to" (info parseGotoCommand (progDesc "go to a created warp point"))))
+    <> command "list" (info (pure Display) (progDesc "list all warp points"))
+    <> command "del" (info parseRemoveCommand (progDesc "delete a warp point"))
+    <> command "replace" (info parseReplaceCommand (progDesc "replace a warp point"))
+    <> command "to" (info parseGotoCommand (progDesc "go to a created warp point")))
 
 setErrorColor :: IO ()
 setErrorColor = setSGR [SetColor Foreground Vivid Red]
@@ -202,4 +206,5 @@ run :: Command -> IO ()
 run (Add addOpt)       = runAdd addOpt
 run Display            = runDisplay
 run (Remove removeOpt) = runRemove removeOpt
+run (Replace str)      = runRemove (RemoveOptions str) *> runAdd (AddOptions Nothing str)
 run (Goto gotoOpt)     = runGoto gotoOpt
