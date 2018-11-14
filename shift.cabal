@@ -41,5 +41,4 @@ executable teleport-hask
         microlens -any,
         bytestring -any,
         ansi-terminal -any,
-        system-fileio -any,
-        data-default -any
+        system-fileio -any

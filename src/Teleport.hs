@@ -10,7 +10,7 @@ import           Control.Monad
 import           Data.Binary
 import qualified Data.ByteString           as BS
 import qualified Data.ByteString.Lazy      as BSL
-import           Data.Default
+import           Data.Functor              (($>))
 import           Data.List
 import           Data.Maybe
 import qualified Data.Text                 as T
@@ -44,11 +44,15 @@ data Command = Display
 -- an abstract entity representing a point to which we can warp to
 data WarpPoint = WarpPoint { _name          :: String
                            , _absFolderPath :: String }
-               deriving (Default, Generic, Binary)
+               deriving (Generic, Binary)
+
+defaultWarpPoint = WarpPoint undefined undefined
 
 -- the main data that is loaded from config
 newtype WarpData = WarpData { _warpPoints :: [WarpPoint] }
-                 deriving (Default, Generic, Binary)
+                 deriving (Generic, Binary)
+
+defaultWarpData = WarpData []
 
 warpPoints :: Lens' WarpData [WarpPoint]
 warpPoints f s = fmap (\x -> s { _warpPoints = x }) (f (_warpPoints s))
@@ -73,7 +77,7 @@ decodeWarpData = fmap decode . (fmap BSL.fromStrict . BS.readFile) . P.encodeStr
 loadWarpData :: FilePath -> IO WarpData
 loadWarpData configFilePath = testfile configFilePath >>= \exists ->
     if exists then decodeWarpData configFilePath
-    else saveWarpData configFilePath def >> pure def
+    else saveWarpData configFilePath defaultWarpData $> defaultWarpData
 
 saveWarpData :: FilePath -> WarpData -> IO ()
 saveWarpData configFilePath warpData =
@@ -126,7 +130,7 @@ setErrorColor = setSGR [SetColor Foreground Vivid Red]
 colorWhen :: IO () -> IO ()
 colorWhen act = do
     useColor <- fromMaybe "1" <$> lookupEnv "CLICOLOR"
-    if useColor /= "0" then act else pure def
+    if useColor /= "0" then act else mempty
 
 warpPointPrint :: WarpPoint -> IO ()
 warpPointPrint warpPoint = do
@@ -144,15 +148,16 @@ needFolderNotFileError path = setErrorColor >>
     (die . T.pack $ "expected folder, not file: " ++ show path)
 
 dieIfFolderNotFound :: FilePath -> IO ()
-dieIfFolderNotFound path = foldr (>>) (pure def)
+dieIfFolderNotFound path = sequence_
     [ flip when (needFolderNotFileError path) =<< testfile path
     , flip unless (folderNotFoundError path) =<< testdir path ]
 
 dieWarpPointExists :: WarpPoint -> IO ()
-dieWarpPointExists warpPoint  = foldr (>>) (pure def)
+dieWarpPointExists warpPoint  = sequence_
     [ setErrorColor
     , putStrLn $ "warp point " <> _name warpPoint <> " already exists:\n"
-    , warpPointPrint warpPoint ]
+    , warpPointPrint warpPoint
+    ]
 
 runAdd :: AddOptions -> IO ()
 runAdd AddOptions{..} = do
@@ -165,7 +170,7 @@ runAdd AddOptions{..} = do
         Just warpPoint -> dieWarpPointExists warpPoint
         Nothing -> do
                         putStrLn "creating warp point: \n"
-                        let newWarpPoint = def & name .~ addname & absFolderPath .~ P.encodeString _absFolderPath
+                        let newWarpPoint = defaultWarpPoint & name .~ addname & absFolderPath .~ P.encodeString _absFolderPath
                         warpPointPrint newWarpPoint
                         let newWarpData = over warpPoints (newWarpPoint:) warpData
                         flip saveWarpData newWarpData =<< warpDataPath
