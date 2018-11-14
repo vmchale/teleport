@@ -42,3 +42,4 @@ executable teleport-hask
         bytestring -any,
         ansi-terminal -any,
         system-fileio -any
+    ghc-options: -Wall

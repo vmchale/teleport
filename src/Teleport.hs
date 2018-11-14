@@ -19,13 +19,16 @@ import           Data.Version
 import           Filesystem                as P
 import qualified Filesystem.Path.CurrentOS as P
 import           GHC.Generics
-import           Lens.Micro                hiding (argument)
+import           Lens.Micro
 import           Options.Applicative
 import           Paths_shift
 import           Prelude                   hiding (FilePath)
 import           System.Console.ANSI
 import           System.Environment
-import           Turtle                    hiding (find, header, (&))
+import           Turtle                    (ExitCode (ExitFailure), FilePath,
+                                            cd, die, echo, exit, fromString,
+                                            home, realpath, testdir, testfile,
+                                            unsafeTextToLine, (</>))
 
 data AddOptions = AddOptions { folderPath :: Maybe String,
                                addname    :: String }
@@ -46,22 +49,15 @@ data WarpPoint = WarpPoint { _name          :: String
                            , _absFolderPath :: String }
                deriving (Generic, Binary)
 
-defaultWarpPoint = WarpPoint undefined undefined
-
 -- the main data that is loaded from config
 newtype WarpData = WarpData { _warpPoints :: [WarpPoint] }
                  deriving (Generic, Binary)
 
+defaultWarpData :: WarpData
 defaultWarpData = WarpData []
 
 warpPoints :: Lens' WarpData [WarpPoint]
 warpPoints f s = fmap (\x -> s { _warpPoints = x }) (f (_warpPoints s))
-
-name :: Lens' WarpPoint String
-name f s = fmap (\x -> s { _name = x}) (f (_name s))
-
-absFolderPath :: Lens' WarpPoint String
-absFolderPath f s = fmap (\x -> s { _absFolderPath = x}) (f (_absFolderPath s))
 
 main :: IO ()
 main = execParser opts >>= run
@@ -87,10 +83,6 @@ saveWarpData configFilePath warpData =
 warpDataPath :: IO FilePath
 warpDataPath = home >>= \homeFolder ->
     pure (homeFolder </> ".warpdata")
-
-readFolderPath :: String -> ReadM FilePath
-readFolderPath = f . fromText . T.pack
-    where f path = if P.valid path then pure path else readerError ("invalid path: " <> show path)
 
 warpnameParser :: Parser String
 warpnameParser = argument str
@@ -162,7 +154,7 @@ dieWarpPointExists warpPoint  = sequence_
 runAdd :: AddOptions -> IO ()
 runAdd AddOptions{..} = do
     dieIfFolderNotFound . P.decode . encodeUtf8 . T.pack . fromMaybe "./" $ folderPath
-    print "folder exists, loading warp data..."
+    putStrLn "folder exists, loading warp data..."
     warpData <- loadWarpData =<< warpDataPath
     _absFolderPath <- realpath . P.decode . encodeUtf8 . T.pack . fromMaybe "./" $ folderPath
     let existingWarpPoint = find ((==addname) . _name) (_warpPoints warpData)
@@ -170,7 +162,7 @@ runAdd AddOptions{..} = do
         Just warpPoint -> dieWarpPointExists warpPoint
         Nothing -> do
                         putStrLn "creating warp point: \n"
-                        let newWarpPoint = defaultWarpPoint & name .~ addname & absFolderPath .~ P.encodeString _absFolderPath
+                        let newWarpPoint = WarpPoint addname (P.encodeString _absFolderPath)
                         warpPointPrint newWarpPoint
                         let newWarpData = over warpPoints (newWarpPoint:) warpData
                         flip saveWarpData newWarpData =<< warpDataPath
@@ -181,8 +173,8 @@ runDisplay = do
     forM_ (_warpPoints warpData) warpPointPrint
 
 dieWarpPointNotFound :: String ->IO ()
-dieWarpPointNotFound w = setErrorColor >> (die . T.pack)
-    (w <> " warp point not found")
+dieWarpPointNotFound wStr = setErrorColor >> (die . T.pack)
+    (wStr <> " warp point not found")
 
 runRemove :: RemoveOptions -> IO ()
 runRemove RemoveOptions{..} = do
@@ -211,5 +203,5 @@ run :: Command -> IO ()
 run (Add addOpt)       = runAdd addOpt
 run Display            = runDisplay
 run (Remove removeOpt) = runRemove removeOpt
-run (Replace str)      = runRemove (RemoveOptions str) *> runAdd (AddOptions Nothing str)
+run (Replace strR)      = runRemove (RemoveOptions strR) *> runAdd (AddOptions Nothing strR)
 run (Goto gotoOpt)     = runGoto gotoOpt
