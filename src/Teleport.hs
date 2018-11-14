@@ -28,7 +28,7 @@ import           System.Environment
 import           Turtle                    (ExitCode (ExitFailure), FilePath,
                                             cd, die, echo, exit, fromString,
                                             home, realpath, testdir, testfile,
-                                            unsafeTextToLine, (</>))
+                                            unsafeTextToLine, (</>), (<>))
 
 data AddOptions = AddOptions { folderPath :: Maybe String,
                                addname    :: String }
