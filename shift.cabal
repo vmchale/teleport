@@ -3,10 +3,9 @@ name: shift
 version: 0.2.1.2
 license: MIT
 license-file: LICENSE
-copyright: 2010 Siddharth Bhat, 2017-2018 Vanessa McHale
+copyright: 2010 Siddharth Bhat, 2017-2019 Vanessa McHale
 maintainer: vamchale@gmail.com
 author: Siddharth Bhat, Vanessa McHale
-stability: unstable
 bug-reports: https://github.com/vmchale/teleport/issues
 synopsis: A tool to quickly switch between directories
 description:
