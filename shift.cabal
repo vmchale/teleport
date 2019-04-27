@@ -1,6 +1,6 @@
 cabal-version: >=1.10
 name: shift
-version: 0.2.1.1
+version: 0.2.1.2
 license: MIT
 license-file: LICENSE
 copyright: 2010 Siddharth Bhat, 2017-2018 Vanessa McHale
@@ -31,14 +31,11 @@ executable teleport-hask
                       RecordWildCards
     ghc-options: -fwarn-unused-imports -Wall
     build-depends:
-        base >=4.7 && <5,
-        turtle -any,
+        base >=4.9 && <5,
         optparse-applicative -any,
-        system-filepath -any,
-        text -any,
         binary -any,
         composition-prelude -any,
-        microlens -any,
         bytestring -any,
         ansi-terminal -any,
-        system-fileio -any
+        directory -any,
+        filepath -any

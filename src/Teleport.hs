@@ -5,30 +5,26 @@
 
 module Main (main) where
 
-import           Control.Composition       hiding ((&))
+import           Control.Composition  hiding ((&))
 import           Control.Monad
 import           Data.Binary
-import qualified Data.ByteString           as BS
-import qualified Data.ByteString.Lazy      as BSL
-import           Data.Functor              (($>))
+import qualified Data.ByteString      as BS
+import qualified Data.ByteString.Lazy as BSL
+import           Data.Functor         (($>))
 import           Data.List
-import           Data.Maybe
-import qualified Data.Text                 as T
-import           Data.Text.Encoding
+import           Data.Maybe           (fromMaybe)
+import           Data.Semigroup       ((<>))
 import           Data.Version
-import           Filesystem                as P
-import qualified Filesystem.Path.CurrentOS as P
-import           GHC.Generics
-import           Lens.Micro
+import           GHC.Generics         (Generic)
 import           Options.Applicative
 import           Paths_shift
-import           Prelude                   hiding (FilePath)
+import           Prelude
 import           System.Console.ANSI
+import           System.Directory     (canonicalizePath, doesDirectoryExist,
+                                       doesFileExist, setCurrentDirectory)
 import           System.Environment
-import           Turtle                    (ExitCode (ExitFailure), FilePath,
-                                            cd, die, echo, exit, fromString,
-                                            home, realpath, testdir, testfile,
-                                            unsafeTextToLine, (</>), (<>))
+import           System.Exit          (ExitCode (..), die, exitWith)
+import           System.FilePath      ((</>))
 
 data AddOptions = AddOptions { folderPath :: Maybe String,
                                addname    :: String }
@@ -56,8 +52,8 @@ newtype WarpData = WarpData { _warpPoints :: [WarpPoint] }
 defaultWarpData :: WarpData
 defaultWarpData = WarpData []
 
-warpPoints :: Lens' WarpData [WarpPoint]
-warpPoints f s = fmap (\x -> s { _warpPoints = x }) (f (_warpPoints s))
+mapWarpPoints :: ([WarpPoint] -> [WarpPoint]) -> WarpData -> WarpData
+mapWarpPoints f (WarpData ws) = WarpData (f ws)
 
 main :: IO ()
 main = execParser opts >>= run
@@ -68,21 +64,22 @@ main = execParser opts >>= run
                              <> header "Warp: move around your filesystem")
 
 decodeWarpData :: FilePath -> IO WarpData
-decodeWarpData = fmap decode . (fmap BSL.fromStrict . BS.readFile) . P.encodeString
+decodeWarpData = fmap decode . (fmap BSL.fromStrict . BS.readFile)
 
 loadWarpData :: FilePath -> IO WarpData
-loadWarpData configFilePath = testfile configFilePath >>= \exists ->
+loadWarpData configFilePath = doesFileExist configFilePath >>= \exists ->
     if exists then decodeWarpData configFilePath
     else saveWarpData configFilePath defaultWarpData $> defaultWarpData
 
 saveWarpData :: FilePath -> WarpData -> IO ()
 saveWarpData configFilePath warpData =
     let dataBytestring = encode warpData in
-        BSL.writeFile (P.encodeString configFilePath) dataBytestring
+        BSL.writeFile (configFilePath) dataBytestring
 
 warpDataPath :: IO FilePath
-warpDataPath = home >>= \homeFolder ->
-    pure (homeFolder </> ".warpdata")
+warpDataPath = do
+    home <- getEnv "HOME"
+    pure (home </> ".warpdata")
 
 warpnameParser :: Parser String
 warpnameParser = argument str
@@ -132,17 +129,17 @@ warpPointPrint warpPoint = do
     putStr $ "\t" <> _absFolderPath warpPoint <> "\n"
 
 folderNotFoundError :: FilePath -> IO ()
-folderNotFoundError path = setErrorColor >>
-    (die . T.pack $ ("unable to find folder: " ++ show path))
+folderNotFoundError path = setErrorColor *>
+    (die $ ("unable to find folder: " ++ show path))
 
 needFolderNotFileError :: FilePath -> IO ()
-needFolderNotFileError path = setErrorColor >>
-    (die . T.pack $ "expected folder, not file: " ++ show path)
+needFolderNotFileError path = setErrorColor *>
+    (die $ "expected folder, not file: " ++ show path)
 
 dieIfFolderNotFound :: FilePath -> IO ()
 dieIfFolderNotFound path = sequence_
-    [ flip when (needFolderNotFileError path) =<< testfile path
-    , flip unless (folderNotFoundError path) =<< testdir path ]
+    [ flip when (needFolderNotFileError path) =<< doesFileExist path
+    , flip unless (folderNotFoundError path) =<< doesDirectoryExist path ]
 
 dieWarpPointExists :: WarpPoint -> IO ()
 dieWarpPointExists warpPoint  = sequence_
@@ -153,18 +150,18 @@ dieWarpPointExists warpPoint  = sequence_
 
 runAdd :: AddOptions -> IO ()
 runAdd AddOptions{..} = do
-    dieIfFolderNotFound . P.decode . encodeUtf8 . T.pack . fromMaybe "./" $ folderPath
+    dieIfFolderNotFound . fromMaybe "./" $ folderPath
     putStrLn "folder exists, loading warp data..."
     warpData <- loadWarpData =<< warpDataPath
-    _absFolderPath <- realpath . P.decode . encodeUtf8 . T.pack . fromMaybe "./" $ folderPath
+    _absFolderPath <- canonicalizePath . fromMaybe "./" $ folderPath
     let existingWarpPoint = find ((==addname) . _name) (_warpPoints warpData)
     case existingWarpPoint of
         Just warpPoint -> dieWarpPointExists warpPoint
         Nothing -> do
                         putStrLn "creating warp point: \n"
-                        let newWarpPoint = WarpPoint addname (P.encodeString _absFolderPath)
+                        let newWarpPoint = WarpPoint addname _absFolderPath
                         warpPointPrint newWarpPoint
-                        let newWarpData = over warpPoints (newWarpPoint:) warpData
+                        let newWarpData = mapWarpPoints (newWarpPoint:) warpData
                         flip saveWarpData newWarpData =<< warpDataPath
 
 runDisplay :: IO ()
@@ -172,8 +169,8 @@ runDisplay = do
     warpData <- loadWarpData =<< warpDataPath
     forM_ (_warpPoints warpData) warpPointPrint
 
-dieWarpPointNotFound :: String ->IO ()
-dieWarpPointNotFound wStr = setErrorColor >> (die . T.pack)
+dieWarpPointNotFound :: String -> IO ()
+dieWarpPointNotFound wStr = setErrorColor *> die
     (wStr <> " warp point not found")
 
 runRemove :: RemoveOptions -> IO ()
@@ -184,7 +181,7 @@ runRemove RemoveOptions{..} = do
     case wantedWarpPoint of
         Nothing -> dieWarpPointNotFound removename
         Just _ -> saveWarpData warpPath
-            (over warpPoints (filter ((/= removename) . _name)) warp)
+            (mapWarpPoints (filter ((/= removename) . _name)) warp)
 
 runGoto :: GotoOptions -> IO ()
 runGoto GotoOptions{..} = do
@@ -194,10 +191,9 @@ runGoto GotoOptions{..} = do
     case wantedWarpPoint of
         Nothing -> dieWarpPointNotFound gotoname
         Just warpPoint -> do
-                             echo (unsafeTextToLine . T.pack . _absFolderPath $ warpPoint)
-                             cd . fromString $ _absFolderPath warpPoint
-                             setWorkingDirectory . fromString . _absFolderPath $ warpPoint
-                             exit (ExitFailure 2)
+                             putStrLn $ _absFolderPath $ warpPoint
+                             setCurrentDirectory $ _absFolderPath $ warpPoint
+                             exitWith (ExitFailure 2)
 
 run :: Command -> IO ()
 run (Add addOpt)       = runAdd addOpt
