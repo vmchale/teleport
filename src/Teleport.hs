@@ -18,10 +18,10 @@ import           Data.Version
 import           GHC.Generics         (Generic)
 import           Options.Applicative
 import           Paths_shift
-import           Prelude
 import           System.Console.ANSI
 import           System.Directory     (canonicalizePath, doesDirectoryExist,
-                                       doesFileExist, setCurrentDirectory)
+                                       doesFileExist, getCurrentDirectory,
+                                       setCurrentDirectory)
 import           System.Environment
 import           System.Exit          (ExitCode (..), die, exitWith)
 import           System.FilePath      ((</>))
@@ -39,11 +39,15 @@ data Command = Display
              | Remove RemoveOptions
              | Goto GotoOptions
              | Replace String
+             | Here
 
 -- an abstract entity representing a point to which we can warp to
 data WarpPoint = WarpPoint { _name          :: String
                            , _absFolderPath :: String }
                deriving (Generic, Binary)
+
+keyByDir :: WarpPoint -> (String, String)
+keyByDir (WarpPoint x y) = (y, x)
 
 -- the main data that is loaded from config
 newtype WarpData = WarpData { _warpPoints :: [WarpPoint] }
@@ -74,7 +78,7 @@ loadWarpData configFilePath = doesFileExist configFilePath >>= \exists ->
 saveWarpData :: FilePath -> WarpData -> IO ()
 saveWarpData configFilePath warpData =
     let dataBytestring = encode warpData in
-        BSL.writeFile (configFilePath) dataBytestring
+        BSL.writeFile configFilePath dataBytestring
 
 warpDataPath :: IO FilePath
 warpDataPath = do
@@ -111,7 +115,8 @@ parseCommand = hsubparser
     <> command "list" (info (pure Display) (progDesc "list all warp points"))
     <> command "del" (info parseRemoveCommand (progDesc "delete a warp point"))
     <> command "replace" (info parseReplaceCommand (progDesc "replace a warp point"))
-    <> command "to" (info parseGotoCommand (progDesc "go to a created warp point")))
+    <> command "to" (info parseGotoCommand (progDesc "go to a created warp point"))
+    <> command "here" (info (pure Here) (progDesc "list relevant warp point for current dir")))
 
 setErrorColor :: IO ()
 setErrorColor = setSGR [SetColor Foreground Vivid Red]
@@ -130,11 +135,11 @@ warpPointPrint warpPoint = do
 
 folderNotFoundError :: FilePath -> IO ()
 folderNotFoundError path = setErrorColor *>
-    (die $ ("unable to find folder: " ++ show path))
+    die ("unable to find folder: " ++ show path)
 
 needFolderNotFileError :: FilePath -> IO ()
 needFolderNotFileError path = setErrorColor *>
-    (die $ "expected folder, not file: " ++ show path)
+    die ("expected folder, not file: " ++ show path)
 
 dieIfFolderNotFound :: FilePath -> IO ()
 dieIfFolderNotFound path = sequence_
@@ -169,6 +174,17 @@ runDisplay = do
     warpData <- loadWarpData =<< warpDataPath
     forM_ (_warpPoints warpData) warpPointPrint
 
+runHere :: IO ()
+runHere = do
+    warpData <- loadWarpData =<< warpDataPath
+    pwd <- getCurrentDirectory
+    case lookup pwd (keyByDir <$> _warpPoints warpData) of
+        Just y  -> do
+            { colorWhen $ setSGR [SetColor Foreground Dull White]
+            ; putStrLn y
+            }
+        Nothing -> dieWarpPointNotFound pwd
+
 dieWarpPointNotFound :: String -> IO ()
 dieWarpPointNotFound wStr = setErrorColor *> die
     (wStr <> " warp point not found")
@@ -191,13 +207,14 @@ runGoto GotoOptions{..} = do
     case wantedWarpPoint of
         Nothing -> dieWarpPointNotFound gotoname
         Just warpPoint -> do
-                             putStrLn $ _absFolderPath $ warpPoint
-                             setCurrentDirectory $ _absFolderPath $ warpPoint
+                             putStrLn $ _absFolderPath warpPoint
+                             setCurrentDirectory $ _absFolderPath warpPoint
                              exitWith (ExitFailure 2)
 
 run :: Command -> IO ()
 run (Add addOpt)       = runAdd addOpt
 run Display            = runDisplay
 run (Remove removeOpt) = runRemove removeOpt
-run (Replace strR)      = runRemove (RemoveOptions strR) *> runAdd (AddOptions Nothing strR)
+run (Replace strR)     = runRemove (RemoveOptions strR) *> runAdd (AddOptions Nothing strR)
 run (Goto gotoOpt)     = runGoto gotoOpt
+run Here = runHere
